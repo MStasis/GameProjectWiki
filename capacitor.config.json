@@ -1,0 +1,12 @@
+{
+  "appId": "com.mstasis.titleplaceholderwiki",
+  "appName": "Title Placeholder Wiki",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#071018"
+  }
+}

@@ -1,0 +1,91 @@
+import groovy.json.JsonSlurper
+
+apply plugin: 'com.android.application'
+
+def packageMetadata = new JsonSlurper().parseText(rootProject.file('../package.json').getText('UTF-8'))
+def appVersionName = String.valueOf(packageMetadata.version)
+def appVersionParts = appVersionName.tokenize('.').collect { part ->
+    def digits = (part =~ /^\d+/)
+    digits.find() ? digits.group().toInteger() : 0
+}
+while (appVersionParts.size() < 3) appVersionParts.add(0)
+def appVersionCode = appVersionParts[0] * 10000 + appVersionParts[1] * 100 + appVersionParts[2]
+
+def signingPropertiesFile = rootProject.file('../build-secrets/android-signing.properties')
+def signingProperties = new Properties()
+if (signingPropertiesFile.exists()) {
+    signingPropertiesFile.withReader('UTF-8') { signingProperties.load(it) }
+}
+def releaseRequested = gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }
+def signingKeys = ['storeFile', 'storePassword', 'keyAlias', 'keyPassword']
+def signingComplete = signingPropertiesFile.exists() && signingKeys.every { signingProperties[it] }
+def signingStoreFile = signingComplete ? file(signingProperties['storeFile']) : null
+if (releaseRequested && (!signingComplete || !signingStoreFile.exists())) {
+    throw new GradleException('Release signing credentials are missing. Run scripts/build-android.ps1 to create or load the private release key.')
+}
+
+android {
+    namespace = "com.mstasis.titleplaceholderwiki"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.mstasis.titleplaceholderwiki"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode appVersionCode
+        versionName appVersionName
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        release {
+            if (signingComplete) {
+                storeFile signingStoreFile
+                storePassword signingProperties['storePassword']
+                keyAlias signingProperties['keyAlias']
+                keyPassword signingProperties['keyPassword']
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (signingComplete) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
