@@ -1,0 +1,101 @@
+{% extends "wiki/base.html" %}
+
+{% block title %}{{ site_title|default:"Title:Placeholder" }} · 게임 개발 기록{% endblock %}
+{% block body_class %}page-home{% endblock %}
+{% block nav_home_class %}is-active{% endblock %}
+
+{% block content %}
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero__content">
+      <p class="eyebrow"><span class="eyebrow__line"></span>PROJECT KNOWLEDGE BASE</p>
+      <h1 id="hero-title">설계한 세계를<br><em>기록하고 연결합니다.</em></h1>
+      <p class="hero__lede">아이템, 전투 시스템, 세계관과 이상 현상까지. 흩어진 개발 정보를 하나의 탐사 기록으로 정리하세요.</p>
+      <div class="hero__actions">
+        {% if request.user.is_authenticated and request.user.is_staff %}
+          {% url 'wiki:editor' as create_url %}
+          <a class="button button--primary" href="{{ create_url|default:'#topics' }}"><span aria-hidden="true">＋</span> 새 기록 작성</a>
+          <a class="button button--secondary" href="{% url 'wiki:structure' %}">구조 정렬</a>
+        {% else %}
+          <a class="button button--primary" href="#topics">기록 열람</a>
+          <a class="button button--secondary" href="{% url 'wiki:search' %}">전체 검색</a>
+        {% endif %}
+      </div>
+    </div>
+    <div class="hero__visual" aria-hidden="true">
+      <div class="orbital-display">
+        <span class="orbit orbit--one"></span>
+        <span class="orbit orbit--two"></span>
+        <span class="orbit orbit--three"></span>
+        <span class="orbital-display__core"></span>
+        <span class="orbital-display__scan"></span>
+        <span class="orbital-display__label orbital-display__label--top">SIGNAL / STABLE</span>
+        <span class="orbital-display__label orbital-display__label--bottom">ANOMALY TRACE</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="topics" aria-labelledby="topics-title">
+    <header class="section-heading">
+      <div>
+        <p class="eyebrow">PRIMARY INDEX</p>
+        <h2 id="topics-title">대주제</h2>
+      </div>
+      <span class="section-heading__meta">{{ roots|default:navigation_roots|length }} SECTORS</span>
+    </header>
+
+    <div class="topic-grid">
+      {% for topic in roots|default:navigation_roots %}
+        <a class="topic-card" href="{{ topic.get_absolute_url }}">
+          <span class="topic-card__number">{{ forloop.counter|stringformat:"02d" }}</span>
+          <span class="topic-card__glyph" aria-hidden="true"><i></i></span>
+          <span class="topic-card__body">
+            <strong>{{ topic.title }}</strong>
+            <span>{{ topic.summary|default:"분류된 개발 기록을 확인합니다."|truncatechars:78 }}</span>
+          </span>
+          <span class="topic-card__footer">
+            <span>{{ topic.children.count }} ENTRIES</span>
+            <span class="topic-card__arrow" aria-hidden="true">↗</span>
+          </span>
+        </a>
+      {% empty %}
+        <div class="empty-state empty-state--wide">
+          <span class="empty-state__signal" aria-hidden="true"></span>
+          <h3>아직 분류된 기록이 없습니다.</h3>
+          {% if request.user.is_staff %}
+            {% url 'wiki:node_create' as create_url %}
+            <p>첫 번째 대주제를 만들어 아카이브를 가동하세요.</p>
+            <a class="button button--primary" href="{{ create_url|default:'#' }}">대주제 만들기</a>
+          {% else %}
+            <p>편집자가 첫 번째 기록을 준비하고 있습니다.</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="section recent-section" aria-labelledby="recent-title">
+    <header class="section-heading">
+      <div>
+        <p class="eyebrow">LATEST TRANSMISSIONS</p>
+        <h2 id="recent-title">최근 갱신된 기록</h2>
+      </div>
+      <a class="text-link" href="{% url 'wiki:search' %}">전체 기록 검색 <span aria-hidden="true">→</span></a>
+    </header>
+
+    <div class="record-list">
+      {% for item in recent_pages %}
+        <a class="record-row" href="{{ item.get_absolute_url }}">
+          <span class="record-row__index">{{ forloop.counter|stringformat:"02d" }}</span>
+          <span class="record-row__main">
+            <strong>{{ item.title }}</strong>
+            <span>{{ item.summary|default:"기록 요약이 없습니다."|truncatechars:96 }}</span>
+          </span>
+          <span class="record-row__path">{% if item.parent %}{{ item.parent.title }}{% else %}ROOT{% endif %}</span>
+          <time datetime="{{ item.updated_at|date:'c' }}">{{ item.updated_at|date:"Y.m.d" }}</time>
+        </a>
+      {% empty %}
+        <div class="empty-state empty-state--compact"><p>갱신된 기록이 없습니다.</p></div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

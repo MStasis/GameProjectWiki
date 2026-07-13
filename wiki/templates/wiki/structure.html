@@ -1,0 +1,114 @@
+{% extends "wiki/base.html" %}
+{% load static %}
+
+{% block title %}구조 관리 · {{ site_title|default:"Title:Placeholder" }}{% endblock %}
+{% block body_class %}page-structure page-staff{% endblock %}
+
+{% block content %}
+  <header class="page-heading page-heading--split">
+    <div>
+      <p class="eyebrow">ARCHIVE TOPOLOGY</p>
+      <h1>기록 구조 관리</h1>
+      <p>핸들을 끌어 순서를 바꾸거나 이동 버튼으로 계층을 조정합니다.</p>
+    </div>
+    {% url 'wiki:node_create' as create_url %}
+    <a class="button button--primary" href="{{ create_url }}"><span aria-hidden="true">＋</span> 새 주제</a>
+  </header>
+
+  <div class="structure-legend" aria-label="구조 관리 안내">
+    <span><i class="legend-mark legend-mark--root" aria-hidden="true"></i> 대주제</span>
+    <span><i class="legend-mark legend-mark--group" aria-hidden="true"></i> 하위 주제</span>
+    <span><i class="legend-mark legend-mark--page" aria-hidden="true"></i> 문서</span>
+    <span class="structure-legend__hint">모바일에서는 화살표 버튼으로 이동하세요.</span>
+  </div>
+
+  <section id="structure-tree" class="structure-panel" aria-labelledby="structure-title">
+    <header class="structure-panel__header">
+      <div><span class="eyebrow">LIVE HIERARCHY</span><h2 id="structure-title">전체 구조</h2></div>
+      <span id="tree-save-status" class="save-status" role="status" aria-live="polite"><i aria-hidden="true"></i> 저장됨</span>
+    </header>
+    <form class="sr-only" aria-hidden="true">{% csrf_token %}</form>
+
+    <ol id="tree-editor" class="structure-tree" data-tree-editor>
+      {% for root in roots %}
+        {% url 'wiki:node_move' root.pk as root_move_url %}
+        {% url 'wiki:node_edit' root.pk as root_edit_url %}
+        <li data-node-id="{{ root.pk }}" data-move-url="{{ root.move_url|default:root_move_url }}" data-node-depth="0">
+          <div class="structure-node structure-node--root">
+            <button class="drag-handle" type="button" data-tree-handle aria-label="{{ root.title }} 끌어서 이동"><span aria-hidden="true">⠿</span></button>
+            <span class="structure-node__kind">대주제</span>
+            <a class="structure-node__title" href="{{ root.get_absolute_url }}">{{ root.title }}</a>
+            <span class="status-chip status-chip--{{ root.status|default:'published' }}">{{ root.get_status_display|default:root.status }}</span>
+            <div class="structure-node__actions">
+              <button type="button" data-tree-action="up" aria-label="{{ root.title }} 위로 이동">↑</button>
+              <button type="button" data-tree-action="down" aria-label="{{ root.title }} 아래로 이동">↓</button>
+              <button type="button" data-tree-action="indent" aria-label="{{ root.title }} 한 단계 안으로 이동">→</button>
+              <button type="button" data-tree-action="outdent" aria-label="{{ root.title }} 한 단계 밖으로 이동" disabled>←</button>
+              <a href="{{ root_edit_url }}" aria-label="{{ root.title }} 편집">편집</a>
+            </div>
+          </div>
+
+          {% with level_two=root.children.all %}
+            {% if level_two %}
+              <ol>
+                {% for child in level_two %}
+                  {% url 'wiki:node_move' child.pk as child_move_url %}
+                  {% url 'wiki:node_edit' child.pk as child_edit_url %}
+                  <li data-node-id="{{ child.pk }}" data-move-url="{{ child.move_url|default:child_move_url }}" data-node-depth="1">
+                    <div class="structure-node structure-node--group">
+                      <button class="drag-handle" type="button" data-tree-handle aria-label="{{ child.title }} 끌어서 이동"><span aria-hidden="true">⠿</span></button>
+                      <span class="structure-node__kind">하위 주제</span>
+                      <a class="structure-node__title" href="{{ child.get_absolute_url }}">{{ child.title }}</a>
+                      <span class="status-chip status-chip--{{ child.status|default:'published' }}">{{ child.get_status_display|default:child.status }}</span>
+                      <div class="structure-node__actions">
+                        <button type="button" data-tree-action="up" aria-label="{{ child.title }} 위로 이동">↑</button>
+                        <button type="button" data-tree-action="down" aria-label="{{ child.title }} 아래로 이동">↓</button>
+                        <button type="button" data-tree-action="indent" aria-label="{{ child.title }} 한 단계 안으로 이동">→</button>
+                        <button type="button" data-tree-action="outdent" aria-label="{{ child.title }} 한 단계 밖으로 이동">←</button>
+                        <a href="{{ child_edit_url }}" aria-label="{{ child.title }} 편집">편집</a>
+                      </div>
+                    </div>
+
+                    {% with level_three=child.children.all %}
+                      {% if level_three %}
+                        <ol>
+                          {% for page_node in level_three %}
+                            {% url 'wiki:node_move' page_node.pk as page_move_url %}
+                            {% url 'wiki:node_edit' page_node.pk as page_edit_url %}
+                            <li data-node-id="{{ page_node.pk }}" data-move-url="{{ page_node.move_url|default:page_move_url }}" data-node-depth="2">
+                              <div class="structure-node structure-node--page">
+                                <button class="drag-handle" type="button" data-tree-handle aria-label="{{ page_node.title }} 끌어서 이동"><span aria-hidden="true">⠿</span></button>
+                                <span class="structure-node__kind">문서</span>
+                                <a class="structure-node__title" href="{{ page_node.get_absolute_url }}">{{ page_node.title }}</a>
+                                <span class="status-chip status-chip--{{ page_node.status|default:'published' }}">{{ page_node.get_status_display|default:page_node.status }}</span>
+                                <div class="structure-node__actions">
+                                  <button type="button" data-tree-action="up" aria-label="{{ page_node.title }} 위로 이동">↑</button>
+                                  <button type="button" data-tree-action="down" aria-label="{{ page_node.title }} 아래로 이동">↓</button>
+                                  <button type="button" data-tree-action="indent" aria-label="{{ page_node.title }} 한 단계 안으로 이동" disabled>→</button>
+                                  <button type="button" data-tree-action="outdent" aria-label="{{ page_node.title }} 한 단계 밖으로 이동">←</button>
+                                  <a href="{{ page_edit_url }}" aria-label="{{ page_node.title }} 편집">편집</a>
+                                </div>
+                              </div>
+                            </li>
+                          {% endfor %}
+                        </ol>
+                      {% endif %}
+                    {% endwith %}
+                  </li>
+                {% endfor %}
+              </ol>
+            {% endif %}
+          {% endwith %}
+        </li>
+      {% empty %}
+        <li class="empty-state empty-state--wide">
+          <span class="empty-state__signal" aria-hidden="true"></span>
+          <h3>정렬할 기록이 없습니다.</h3>
+          <p>첫 번째 대주제를 만든 뒤 이곳에서 구조를 관리하세요.</p>
+        </li>
+      {% endfor %}
+    </ol>
+  </section>
+{% endblock %}
+
+{% block extra_scripts %}<script src="{% static 'wiki/js/tree.js' %}" defer></script>{% endblock %}

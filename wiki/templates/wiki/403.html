@@ -1,0 +1,21 @@
+{% extends "wiki/base.html" %}
+
+{% block title %}접근 권한 없음 · {{ site_title|default:"Title:Placeholder" }}{% endblock %}
+{% block body_class %}page-error{% endblock %}
+
+{% block content %}
+  <section class="error-state" aria-labelledby="error-title">
+    <div class="error-state__lock" aria-hidden="true"><span></span></div>
+    <p class="eyebrow">CLEARANCE REQUIRED</p>
+    <h1 id="error-title">이 기록에 접근할 권한이 없습니다.</h1>
+    <p>초안과 관리 화면은 편집자만 열람할 수 있습니다.<br>권한이 있다면 편집자 계정으로 인증해 주세요.</p>
+    <div class="error-state__actions">
+      {% if request.user.is_authenticated %}
+        <a class="button button--primary" href="{% url 'wiki:home' %}">공개 기록으로 이동</a>
+      {% else %}
+        <a class="button button--primary" href="{% url 'wiki:login' %}?next={{ request.path|urlencode }}">편집자 로그인</a>
+        <a class="button button--secondary" href="{% url 'wiki:home' %}">공개 기록으로 이동</a>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}

@@ -1,0 +1,157 @@
+{% load static %}
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#090b13">
+  <title>{% block title %}{{ site_title|default:"Title:Placeholder" }}{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'wiki/css/site.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <a class="skip-link" href="#main-content">본문으로 건너뛰기</a>
+
+  <div class="site-atmosphere" aria-hidden="true">
+    <span class="site-atmosphere__rift"></span>
+    <span class="site-atmosphere__grid"></span>
+  </div>
+
+  <header class="topbar">
+    <div class="topbar__inner">
+      <button class="icon-button topbar__menu" type="button" data-drawer-toggle aria-controls="site-drawer" aria-expanded="false">
+        <span class="sr-only">탐색 메뉴 열기</span>
+        <span class="menu-icon" aria-hidden="true"></span>
+      </button>
+
+      <a class="brand" href="{% url 'wiki:home' %}" aria-label="{{ site_title|default:'Title:Placeholder' }} 홈">
+        <span class="brand__mark" aria-hidden="true"><i></i></span>
+        <span class="brand__copy">
+          <strong>{{ site_title|default:"Title:Placeholder" }}</strong>
+          <small>DEVELOPMENT ARCHIVE</small>
+        </span>
+      </a>
+
+      <form class="global-search" action="{% url 'wiki:search' %}" method="get" role="search">
+        <label class="sr-only" for="global-query">전체 문서 검색</label>
+        <button class="global-search__submit" type="submit" aria-label="전체 문서 검색"><span class="global-search__icon" aria-hidden="true"></span></button>
+        <input id="global-query" name="q" type="search" value="{{ query|default:'' }}" placeholder="기록 검색" autocomplete="off">
+        <kbd aria-hidden="true">/</kbd>
+      </form>
+
+      <nav class="topbar__actions" aria-label="계정 메뉴">
+        {% if request.user.is_authenticated and request.user.is_staff %}
+          <a class="button button--quiet topbar__dashboard" href="{% url 'wiki:dashboard' %}">관제실</a>
+          <form action="{% url 'wiki:logout' %}" method="post">
+            {% csrf_token %}
+            <button class="icon-button" type="submit" title="로그아웃">
+              <span class="sr-only">로그아웃</span>
+              <span class="logout-icon" aria-hidden="true"></span>
+            </button>
+          </form>
+        {% else %}
+          <a class="button button--quiet topbar__login" href="{% url 'wiki:login' %}">편집자 로그인</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <div class="drawer-backdrop" data-drawer-backdrop hidden></div>
+  <div class="app-shell">
+    <aside class="sidebar" id="site-drawer" data-site-drawer aria-label="문서 탐색">
+      <div class="sidebar__mobile-head">
+        <span class="eyebrow">NAVIGATION</span>
+        <button class="icon-button" type="button" data-drawer-close>
+          <span class="sr-only">탐색 메뉴 닫기</span>
+          <span class="close-icon" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <nav class="wiki-nav" aria-label="위키 주제">
+        <a class="wiki-nav__home {% block nav_home_class %}{% endblock %}" href="{% url 'wiki:home' %}">
+          <span class="nav-symbol nav-symbol--home" aria-hidden="true"></span>
+          <span>전체 기록</span>
+        </a>
+
+        <div class="sidebar__label">
+          <span>주제 인덱스</span>
+          <span class="signal-dot" aria-label="데이터 연결됨"></span>
+        </div>
+
+        <ul class="wiki-tree">
+          {% for root in navigation_roots %}
+            <li class="wiki-tree__root">
+              <a href="{{ root.get_absolute_url }}" {% if node and node.pk == root.pk %}aria-current="page"{% endif %}>
+                <span class="tree-node-mark" aria-hidden="true">{{ forloop.counter|stringformat:"02d" }}</span>
+                <span class="tree-node-title">{{ root.title }}</span>
+                {% if root.nav_children %}<span class="tree-node-count">{{ root.nav_children|length }}</span>{% endif %}
+              </a>
+              {% with level_two=root.nav_children %}
+                {% if level_two %}
+                  <ul>
+                    {% for child in level_two %}
+                      {% if child.status == 'published' or request.user.is_staff %}
+                        <li>
+                          <a href="{{ child.get_absolute_url }}" {% if node and node.pk == child.pk %}aria-current="page"{% endif %}>
+                            <span class="tree-branch" aria-hidden="true"></span>
+                            <span class="tree-node-title">{{ child.title }}</span>
+                          </a>
+                          {% with level_three=child.nav_children %}
+                            {% if level_three %}
+                              <ul>
+                                {% for page_node in level_three %}
+                                  {% if page_node.status == 'published' or request.user.is_staff %}
+                                    <li><a href="{{ page_node.get_absolute_url }}" {% if node and node.pk == page_node.pk %}aria-current="page"{% endif %}>{{ page_node.title }}</a></li>
+                                  {% endif %}
+                                {% endfor %}
+                              </ul>
+                            {% endif %}
+                          {% endwith %}
+                        </li>
+                      {% endif %}
+                    {% endfor %}
+                  </ul>
+                {% endif %}
+              {% endwith %}
+            </li>
+          {% empty %}
+            <li class="wiki-tree__empty">아직 공개된 주제가 없습니다.</li>
+          {% endfor %}
+        </ul>
+      </nav>
+
+      {% if request.user.is_authenticated and request.user.is_staff %}
+        <div class="sidebar__staff">
+          <span class="sidebar__staff-status"><i aria-hidden="true"></i> 편집 모드</span>
+          <a href="{% url 'wiki:structure' %}">구조 관리</a>
+        </div>
+      {% endif %}
+
+      <footer class="sidebar__footer">
+        <span>ARCHIVE SYSTEM</span>
+        <span>LOCAL // {% now "Y.m.d" %}</span>
+      </footer>
+    </aside>
+
+    <main class="main-content" id="main-content" tabindex="-1">
+      {% if messages %}
+        <div class="messages" aria-live="polite">
+          {% for message in messages %}
+            <div class="message message--{{ message.tags|default:'info' }}">
+              <span class="message__signal" aria-hidden="true"></span>
+              <span>{{ message }}</span>
+              <button class="message__close" type="button" data-dismiss-message><span class="sr-only">알림 닫기</span>×</button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script src="{% static 'wiki/js/site.js' %}" defer></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

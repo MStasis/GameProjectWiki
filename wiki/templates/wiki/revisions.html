@@ -1,0 +1,50 @@
+{% extends "wiki/base.html" %}
+
+{% block title %}수정 기록 · {{ node.title|default:page.title }}{% endblock %}
+{% block body_class %}page-revisions page-staff{% endblock %}
+
+{% block content %}
+  {% with current=node|default:page %}
+    <header class="page-heading page-heading--split">
+      <div>
+        <nav class="breadcrumbs" aria-label="현재 위치"><a href="{{ current.get_absolute_url }}">{{ current.title }}</a><span aria-hidden="true">/</span><span aria-current="page">수정 기록</span></nav>
+        <p class="eyebrow">REVISION LOG</p>
+        <h1>수정 기록</h1>
+        <p>저장된 시점의 기록을 확인하고 필요한 버전으로 되돌립니다.</p>
+      </div>
+      {% url 'wiki:node_edit' current.pk as edit_url %}
+      <a class="button button--primary" href="{{ edit_url }}">현재 문서 편집</a>
+    </header>
+
+    <section class="revision-timeline" aria-label="버전 목록">
+      {% for revision in revisions %}
+        <article class="revision-item {% if forloop.first %}revision-item--current{% endif %}">
+          <div class="revision-item__rail" aria-hidden="true"><span></span></div>
+          <div class="revision-item__card">
+            <header>
+              <div>
+                <span class="status-chip {% if forloop.first %}status-chip--published{% endif %}">{% if forloop.first %}현재 버전{% else %}REV {{ revision.number|default:forloop.revcounter }}{% endif %}</span>
+                <h2>{{ revision.title|default:current.title }}</h2>
+              </div>
+              <time datetime="{{ revision.created_at|date:'c' }}">{{ revision.created_at|date:"Y.m.d H:i" }}</time>
+            </header>
+            <p>{{ revision.reason|default:"변경 설명이 기록되지 않았습니다." }}</p>
+            <footer>
+              <span class="revision-author"><i aria-hidden="true"></i>{% if revision.created_by %}{{ revision.created_by.get_full_name|default:revision.created_by.username }}{% else %}SYSTEM{% endif %}</span>
+              {% if not forloop.first %}
+                {% url 'wiki:revision_restore' current.pk revision.pk as restore_url %}
+                <form action="{{ restore_url }}" method="post">{% csrf_token %}<button class="button button--secondary" type="submit" data-confirm="이 버전으로 복원할까요? 현재 상태도 수정 기록에 보관됩니다.">이 버전 복원</button></form>
+              {% endif %}
+            </footer>
+          </div>
+        </article>
+      {% empty %}
+        <div class="empty-state empty-state--wide">
+          <span class="empty-state__signal" aria-hidden="true"></span>
+          <h3>아직 수정 기록이 없습니다.</h3>
+          <p>문서를 저장하면 이곳에 버전이 생성됩니다.</p>
+        </div>
+      {% endfor %}
+    </section>
+  {% endwith %}
+{% endblock %}

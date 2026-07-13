@@ -1,0 +1,119 @@
+{% extends "wiki/base.html" %}
+{% load static %}
+
+{% block title %}{% if node %}{{ node.title }} 편집{% else %}새 기록{% endif %} · {{ site_title|default:"Title:Placeholder" }}{% endblock %}
+{% block body_class %}page-editor page-staff{% endblock %}
+
+{% block content %}
+  <form id="page-editor" class="editor-shell" method="post" action="{% if node %}{% url 'wiki:node_edit' node.pk %}{% else %}{% url 'wiki:editor' %}{% endif %}" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    <header class="editor-topbar">
+      <div class="editor-topbar__identity">
+        <a class="icon-button icon-button--bordered" href="{% if node %}{{ node.get_absolute_url }}{% else %}{% url 'wiki:dashboard' %}{% endif %}" aria-label="편집 화면 닫기">←</a>
+        <div>
+          <p class="eyebrow">DOCUMENT EDITOR</p>
+          <strong>{% if node %}기록 편집{% else %}새 기록 작성{% endif %}</strong>
+        </div>
+      </div>
+      <div class="editor-topbar__actions">
+        <span id="editor-save-status" class="save-status" role="status" aria-live="polite"><i aria-hidden="true"></i> 변경 사항 없음</span>
+        <button class="button button--secondary" id="save-draft" name="action" value="draft" type="submit">초안 저장</button>
+        <button class="button button--primary" id="publish-page" name="action" value="publish" type="submit">공개하기</button>
+      </div>
+    </header>
+
+    {% if form.non_field_errors %}
+      <div class="form-alert" role="alert">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+    {% endif %}
+
+    <div class="editor-layout">
+      <main class="editor-canvas">
+        <section class="editor-document" aria-label="문서 기본 정보">
+          <div class="field field--bare">
+            <label class="sr-only" for="page-title">문서 제목</label>
+            <input id="page-title" class="editor-title" name="title" type="text" value="{% if node %}{{ node.title }}{% elif form.title.value %}{{ form.title.value }}{% endif %}" placeholder="기록 제목" required maxlength="200">
+            {% for error in form.title.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          </div>
+          <div class="field field--bare">
+            <label class="sr-only" for="page-summary">문서 요약</label>
+            <textarea id="page-summary" class="editor-summary" name="summary" rows="2" placeholder="이 기록을 한 문장으로 설명하세요.">{% if node %}{{ node.summary }}{% elif form.summary.value %}{{ form.summary.value }}{% endif %}</textarea>
+          </div>
+          <div class="editor-divider" aria-hidden="true"><span></span></div>
+
+          <div id="editor-block-list" class="editor-block-list" aria-label="콘텐츠 블록" aria-live="polite"></div>
+
+          <div class="block-inserter">
+            <span class="block-inserter__line" aria-hidden="true"></span>
+            <div class="block-inserter__menu" aria-label="콘텐츠 블록 추가">
+              <span>블록 추가</span>
+              <button type="button" data-add-block="text"><i aria-hidden="true">T</i> 텍스트</button>
+              <button type="button" data-add-block="image"><i aria-hidden="true">▧</i> 이미지</button>
+              <button type="button" data-add-block="sheet"><i aria-hidden="true">▦</i> 구글 시트</button>
+              <button type="button" data-add-block="youtube"><i aria-hidden="true">▶</i> 유튜브</button>
+              <button type="button" data-add-block="callout"><i aria-hidden="true">!</i> 경고 / 참고</button>
+              <button type="button" data-add-block="divider"><i aria-hidden="true">―</i> 구분선</button>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <aside class="editor-inspector" aria-label="문서 설정">
+        <section class="inspector-section">
+          <header><span class="eyebrow">DOCUMENT DATA</span><h2>기록 설정</h2></header>
+          <div class="field">
+            <label for="page-template">문서 양식</label>
+            <select id="page-template" name="template">
+              <option value="default">자유 문서</option>
+              <option value="weapon" {% if node.template == 'weapon' %}selected{% endif %}>무기</option>
+              <option value="item" {% if node.template == 'item' %}selected{% endif %}>아이템</option>
+              <option value="system" {% if node.template == 'system' %}selected{% endif %}>게임 시스템</option>
+              <option value="anomaly" {% if node.template == 'anomaly' %}selected{% endif %}>이상 현상</option>
+              <option value="character" {% if node.template == 'character' %}selected{% endif %}>캐릭터</option>
+              <option value="location" {% if node.template == 'location' %}selected{% endif %}>지역 / 맵</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="page-tags">태그 <span>쉼표로 구분</span></label>
+            <input id="page-tags" name="tags" type="text" value="{{ tags|join:', '|default:form.tags.value|default:'' }}" placeholder="5.56mm, 연사, 프로토타입">
+          </div>
+          <div class="field">
+            <label for="page-parent">상위 주제</label>
+            <select id="page-parent" name="parent">
+              <option value="">최상위 대주제</option>
+              {% for option in parent_options %}
+                <option value="{{ option.pk }}" {% if node.parent_id == option.pk %}selected{% endif %}>{{ option.depth_prefix }}{{ option.title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </section>
+
+        <section class="inspector-section">
+          <header><span class="eyebrow">PROPERTIES</span><h2>세부 속성</h2></header>
+          <div id="page-properties" class="property-list" data-empty-label="추가된 속성이 없습니다.">
+            {% for property in properties %}
+              <div class="property-row" data-property-row>
+                <input name="property_key" value="{{ property.key }}" data-property-name data-property-key-input aria-label="속성 이름" placeholder="속성 이름">
+                <input name="property_value" value="{{ property.value }}" data-property-value aria-label="속성 값" placeholder="값">
+                <button type="button" data-remove-property aria-label="속성 삭제">×</button>
+              </div>
+            {% endfor %}
+          </div>
+          <button class="button button--quiet button--full" type="button" data-add-property>＋ 속성 추가</button>
+        </section>
+
+        {% if node %}
+          <section class="inspector-section inspector-section--danger">
+            <header><span class="eyebrow">QUARANTINE</span><h2>위험 구역</h2></header>
+            {% url 'wiki:node_delete' node.pk as delete_url %}
+            <button class="button button--danger button--full" type="submit" formaction="{{ delete_url }}" formmethod="post">휴지통으로 이동</button>
+          </section>
+        {% endif %}
+      </aside>
+    </div>
+  </form>
+
+  {{ initial_blocks|json_script:"initial-blocks-data" }}
+  {{ editor_config|json_script:"editor-config-data" }}
+{% endblock %}
+
+{% block extra_scripts %}<script src="{% static 'wiki/js/editor.js' %}" defer></script>{% endblock %}
